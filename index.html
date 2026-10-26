@@ -237,6 +237,18 @@ input[type=text]:focus-visible{outline:3px solid var(--lantern);outline-offset:1
 .screen-shake{animation:screenshake .6s}
 @keyframes screenshake{0%,100%{transform:translate(0,0)}15%{transform:translate(-12px,6px)}30%{transform:translate(10px,-8px)}45%{transform:translate(-8px,-4px)}60%{transform:translate(6px,8px)}75%{transform:translate(-4px,2px)}}
 canvas#confetti.top{z-index:40}
+/* 通常の景品の「当たり！」：同じ形で、色と動きを控えめに */
+.jackpot.normal{background:radial-gradient(circle at 50% 45%,rgba(42,61,120,.96),rgba(8,12,30,.98))}
+.jackpot.normal .rays{background:repeating-conic-gradient(from 0deg,rgba(169,180,216,.13) 0deg 7deg,transparent 7deg 18deg);animation-duration:24s}
+.jackpot.normal .flash{display:none}
+.jackpot.normal .inner{animation:popin .6s cubic-bezier(.2,1.4,.4,1) both}
+@keyframes popin{0%{transform:scale(.6);opacity:0}100%{transform:scale(1);opacity:1}}
+.jackpot.normal .big{background:none;color:var(--paper);-webkit-background-clip:border-box;background-clip:border-box;
+  filter:drop-shadow(0 5px 0 var(--shu));animation:none;font-size:clamp(3rem,13vmin,9rem)}
+.jackpot.normal .jp-img{border-color:var(--lantern);background:var(--paper);box-shadow:0 12px 30px rgba(0,0,0,.45)}
+.jackpot.normal .jp-img .q{color:var(--shu)}
+.jackpot.normal .pwinner{color:var(--lantern)}
+.jackpot.normal .tap{color:var(--mist)}
 
 /* ---- 確認ダイアログ ---- */
 .modal{position:fixed;inset:0;background:rgba(8,12,30,.7);display:grid;place-items:center;z-index:20;
@@ -416,8 +428,8 @@ canvas#confetti{position:fixed;inset:0;pointer-events:none;z-index:15;width:100%
   <div class="rays"></div>
   <div class="flash"></div>
   <div class="inner">
-    <div class="sub">高額景品</div>
-    <div class="big">大当たり！</div>
+    <div class="sub" id="jackpotSub">高額景品</div>
+    <div class="big" id="jackpotBig">大当たり！</div>
     <div class="jp-img" id="jackpotImgBox"><img id="jackpotImg" alt=""><span class="q" id="jackpotQ">？</span></div>
     <div class="pname" id="jackpotName"></div>
     <div class="pwinner" id="jackpotWinner"></div>
@@ -747,28 +759,40 @@ canvas#confetti{position:fixed;inset:0;pointer-events:none;z-index:15;width:100%
     slot.classList.remove("pop"); void slot.offsetWidth; slot.classList.add("pop");
     $("winnerInput").value = "";
     save(); renderPrizes();
-    if(pick.premium) showJackpot(pick.name, congrats, pick.image);   // 高額景品は特別演出
-    else { fanfare(); confetti(); }
+    // どの景品も全画面で発表。高額景品はさらに豪華な「大当たり！」
+    showJackpot(pick.name, congrats, pick.image, !!pick.premium);
   }
 
   // ---- 高額景品の大当たり演出 ----
   let jackpotTimer = null;
-  function showJackpot(name, congrats, image){
+  function showJackpot(name, congrats, image, premium){
     $("jackpotName").textContent = name;
     const ji = $("jackpotImg");
     if(image){ ji.src = image; ji.alt = name; ji.hidden = false; $("jackpotQ").hidden = true; }
     else { ji.hidden = true; ji.removeAttribute("src"); $("jackpotQ").hidden = false; }
     $("jackpotWinner").textContent = congrats;
     const jp = $("jackpot"); jp.hidden = false;
+    jp.classList.toggle("normal", !premium);
+    jp.setAttribute("aria-label", premium ? "大当たり" : "当たり");
+    $("jackpotBig").textContent = premium ? "大当たり！" : "当たり！";
+    $("jackpotSub").hidden = !premium;
     // 演出のアニメーションを最初から再生し直す
     jp.querySelectorAll(".inner,.flash,.jp-img").forEach(el => { el.style.animation = "none"; void el.offsetWidth; el.style.animation = ""; });
-    document.querySelector(".wrap").classList.remove("screen-shake"); void document.body.offsetWidth;
-    document.querySelector(".wrap").classList.add("screen-shake");
-    jackpotSound();
-    confetti({count:320, duration:6000, colors:["#ffd25e","#ffe9a8","#f5c04a","#fff6c8","#e5483a"], top:true});
-    setTimeout(() => confetti({count:200, duration:4000, colors:["#ffd25e","#fff6c8","#ffffff"], top:true}), 1400);
     clearTimeout(jackpotTimer);
-    jackpotTimer = setTimeout(hideJackpot, 7000);
+    if(premium){
+      // 高額景品：画面の揺れ・専用ファンファーレ・金色の紙吹雪を2回
+      document.querySelector(".wrap").classList.remove("screen-shake"); void document.body.offsetWidth;
+      document.querySelector(".wrap").classList.add("screen-shake");
+      jackpotSound();
+      confetti({count:320, duration:6000, colors:["#ffd25e","#ffe9a8","#f5c04a","#fff6c8","#e5483a"], top:true});
+      setTimeout(() => confetti({count:200, duration:4000, colors:["#ffd25e","#fff6c8","#ffffff"], top:true}), 1400);
+      jackpotTimer = setTimeout(hideJackpot, 7000);
+    } else {
+      // 通常の景品：控えめな演出（揺れなし・いつものファンファーレ・紙吹雪1回）
+      fanfare();
+      confetti({count:140, duration:3500, top:true});
+      jackpotTimer = setTimeout(hideJackpot, 5000);
+    }
   }
   function hideJackpot(){ clearTimeout(jackpotTimer); $("jackpot").hidden = true; }
   $("jackpot").addEventListener("click", hideJackpot);
