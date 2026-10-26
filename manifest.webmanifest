@@ -1,0 +1,17 @@
+{
+  "name": "社員旅行ビンゴ",
+  "short_name": "ビンゴ",
+  "description": "番号抽選・番号ボード・景品抽選ができるビンゴアプリ",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#16224a",
+  "theme_color": "#16224a",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

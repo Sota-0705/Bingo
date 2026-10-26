@@ -1,0 +1,975 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>社員旅行ビンゴ</title>
+<!-- ホーム画面から開いたとき、Safariのバーを出さずに全画面で表示する -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ビンゴ">
+<meta name="theme-color" content="#16224a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+/* アプリとして動かすための土台（画面の端・切り欠き・ズーム対策） */
+html{-webkit-text-size-adjust:100%;color-scheme:dark;background:#16224a}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;font-size:14px;overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
+button,.tabs,.big-btn,.ghost{touch-action:manipulation;-webkit-user-select:none;user-select:none}
+img{max-width:100%}
+</style>
+<style>
+/* Layout: 縁日の夜。藍色の地に提灯の金と朱。上にタブ、主役は大きな玉。単一テーマ（夜）で固定 */
+:root{
+  --night:#16224a; --night-2:#1f2f60; --night-3:#2a3d78;
+  --lantern:#f5c04a; --shu:#e5483a; --paper:#fbf3e2; --mist:#a9b4d8;
+  --display:"Dela Gothic One","Hiragino Sans","Yu Gothic",sans-serif;
+  --body:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic",sans-serif;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{min-height:100%}
+body{background:var(--night);color:var(--paper);font-family:var(--body);font-weight:500;
+  background-image:radial-gradient(ellipse 90% 40% at 50% 0%, var(--night-3) 0%, transparent 70%);
+  background-attachment:fixed}
+.wrap{max-width:none;margin:0 auto;padding-block:16px 40px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:20px}
+.wrap.narrow{max-width:760px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--display);font-weight:400;font-size:1.6rem;margin:0;letter-spacing:.04em;color:var(--lantern);text-wrap:balance}
+h1 small{display:block;font-family:var(--body);font-size:.72rem;color:var(--mist);letter-spacing:.15em;font-weight:700}
+.tabs{display:flex;background:var(--night-2);border-radius:999px;padding:4px;gap:4px}
+.tabs button{appearance:none;border:0;background:transparent;color:var(--mist);font:700 .95rem var(--body);
+  padding:8px 18px;border-radius:999px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--lantern);color:var(--night)}
+button:focus-visible{outline:3px solid var(--paper);outline-offset:2px}
+
+/* ---- 抽選 ---- */
+.stage{display:flex;flex-direction:column;align-items:center;gap:14px;padding-block:8px}
+.ball{--size:clamp(220px,min(88vw,calc(100dvh - 320px)),760px);width:var(--size);aspect-ratio:1;max-width:100%;border-radius:50%;display:grid;place-items:center;position:relative;
+  background:radial-gradient(circle at 34% 28%, #fff 0 8%, var(--paper) 30%, #e9d9b4 75%, #c9b183 100%);
+  box-shadow:0 18px 40px rgba(0,0,0,.45), inset -10px -14px 30px rgba(120,80,20,.25);color:var(--night)}
+.ball .inner{width:76%;aspect-ratio:1;border-radius:50%;background:var(--paper);display:flex;flex-direction:column;align-items:center;justify-content:center;
+  border:calc(var(--size) * .022) solid var(--shu)}
+.ball .num{font-family:var(--display);font-size:calc(var(--size) * .44);line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.ball.idle .num{font-size:calc(var(--size) * .12);letter-spacing:.05em}
+.ball.rolling{animation:wobble .18s linear infinite}
+.ball.pop{animation:pop .5s cubic-bezier(.2,1.6,.4,1)}
+@keyframes wobble{0%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}100%{transform:rotate(-4deg)}}
+@keyframes pop{0%{transform:scale(.7)}100%{transform:scale(1)}}
+.count{color:var(--mist);font-weight:700;font-variant-numeric:tabular-nums}
+.count b{color:var(--paper);font-size:1.2rem}
+.big-btn{appearance:none;border:0;cursor:pointer;font:400 1.5rem var(--display);letter-spacing:.1em;color:var(--paper);
+  background:var(--shu);padding:16px 56px;border-radius:999px;box-shadow:0 6px 0 #9c2b21;transition:transform .08s}
+.big-btn:active{transform:translateY(4px);box-shadow:0 2px 0 #9c2b21}
+.big-btn:disabled{opacity:.5;cursor:default}
+.row-tools{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.ghost{appearance:none;cursor:pointer;background:transparent;border:1.5px solid var(--night-3);color:var(--mist);
+  font:700 .85rem var(--body);padding:8px 14px;border-radius:999px}
+.ghost:hover{border-color:var(--mist);color:var(--paper)}
+.section-label{font-size:.75rem;letter-spacing:.2em;color:var(--mist);font-weight:800;margin:0 0 8px}
+.history{display:flex;gap:6px;flex-wrap:wrap;min-height:34px}
+.chip{min-width:34px;height:34px;padding:0 6px;border-radius:999px;display:grid;place-items:center;background:var(--night-2);
+  font-weight:800;font-variant-numeric:tabular-nums;color:var(--paper)}
+.chip:first-child{background:var(--lantern);color:var(--night)}
+.empty-note{color:var(--mist);font-size:.9rem;margin:0}
+.big-btn.stop{background:var(--lantern);color:var(--night);box-shadow:0 6px 0 #b8892a;animation:pulse 1s ease-in-out infinite}
+.big-btn.stop:active{box-shadow:0 2px 0 #b8892a}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+.bgm-note{color:var(--mist);font-size:.8rem;font-weight:700;margin:0;min-height:1.2em}
+
+/* ---- 番号ボード（画面の大きさに合わせて伸び縮み） ---- */
+.board-view{display:flex;flex-direction:column;gap:14px}
+.board-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.latest{background:var(--paper);color:var(--night);border-radius:14px;padding:6px 20px;text-align:center;border:3px solid var(--shu)}
+.latest span{display:block;font-size:clamp(.72rem,1.4vh,1rem);font-weight:800;color:var(--shu);letter-spacing:.15em}
+.latest b{display:block;font-family:var(--display);font-weight:400;font-size:clamp(2rem,6vh,4.2rem);line-height:1.1;font-variant-numeric:tabular-nums}
+.board{--cell:clamp(26px,calc((100dvh - 480px) / 16),72px);display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.board .grp{display:flex;flex-direction:column;gap:4px;min-width:0}
+.board .h{font-family:var(--display);color:var(--paper);background:var(--shu);border-radius:calc(var(--cell) * .2);height:var(--cell);
+  display:grid;place-items:center;font-size:calc(var(--cell) * .62)}
+.board .c{height:var(--cell);display:grid;place-items:center;border-radius:calc(var(--cell) * .2);background:var(--night-2);color:#6f7cab;
+  font-weight:800;font-size:calc(var(--cell) * .5);font-variant-numeric:tabular-nums}
+.board .c.on{background:var(--lantern);color:var(--night)}
+.board .c.last{background:var(--shu);color:var(--paper);animation:pop .5s}
+@media (min-width:720px){
+  .board{--cell:clamp(34px,min(calc((100dvh - 420px) / 5),calc((100vw - 160px) / 16.5)),170px);grid-template-columns:1fr;gap:6px}
+  .board .grp{display:grid;grid-template-columns:calc(var(--cell) * 1.2) repeat(15,minmax(0,1fr));gap:6px}
+}
+.board-history .history{gap:clamp(4px,.8vh,10px)}
+.board-history .chip{height:clamp(30px,4.6vh,56px);min-width:clamp(30px,4.6vh,56px);padding:0 clamp(6px,1vh,14px);font-size:clamp(.85rem,2.2vh,1.6rem)}
+
+.hint{color:var(--mist);text-align:center;font-size:.85rem;margin:0}
+
+/* ---- 景品（画面の大きさに合わせて伸び縮み） ---- */
+.big-btn.small{font-size:1.15rem;padding:12px 32px}
+.prize-layout{display:flex;flex-direction:column;align-items:center;gap:18px;padding-block:8px}
+.prize-side{width:100%;max-width:440px;display:flex;flex-direction:column;align-items:center;gap:14px}
+.slot{--img:clamp(160px,min(70vw,calc(100dvh - 540px)),520px);box-sizing:border-box;width:100%;max-width:min(100%,900px);background:var(--paper);color:var(--night);
+  border-radius:20px;border:4px solid var(--lantern);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(var(--img) * .04);
+  padding:clamp(16px,3vh,40px);text-align:center;box-shadow:0 18px 40px rgba(0,0,0,.4)}
+.slot .label{font-size:clamp(.8rem,calc(var(--img) * .05),1.4rem);letter-spacing:.2em;color:var(--shu);font-weight:800}
+.slot .name{font-family:var(--display);font-size:clamp(1.4rem,calc(var(--img) * .11),3.6rem);line-height:1.25;overflow-wrap:anywhere}
+.slot .winner{font-weight:800;color:var(--shu);min-height:1.2em;font-size:clamp(1rem,calc(var(--img) * .065),2rem)}
+.slot.rolling{animation:wobble .18s linear infinite}
+.slot.pop{animation:pop .5s cubic-bezier(.2,1.6,.4,1)}
+.slot-img{width:var(--img);aspect-ratio:1;max-width:100%;border-radius:16px;overflow:hidden;display:grid;place-items:center;
+  background:repeating-linear-gradient(45deg,#f1e4c4 0 12px,#f7edd5 12px 24px);border:2px dashed #e0cc9c}
+.slot-img img{width:100%;height:100%;object-fit:contain;display:block}
+.slot-img .q{font-family:var(--display);font-size:calc(var(--img) * .4);color:var(--shu);opacity:.85}
+.slot-img.has-img{border:0;background:#fff}
+@media (min-width:900px) and (orientation:landscape){
+  .prize-layout{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr);align-items:start;gap:28px}
+  .slot{--img:clamp(180px,min(36vw,calc(100dvh - 470px)),680px);max-width:none;min-height:calc(100dvh - 165px)}
+  .prize-side{max-width:none;align-self:stretch;justify-content:flex-start;padding-top:8px}
+}
+.field{display:flex;flex-direction:column;gap:6px;width:100%;max-width:440px}
+.field label{font-size:.8rem;color:var(--mist);font-weight:700}
+.field.winner-field{max-width:520px;gap:8px}
+.field.winner-field label{font-size:clamp(.95rem,1.8vh,1.2rem);color:var(--paper)}
+.field.winner-field label b{color:var(--lantern);font-size:.85em;margin-left:4px}
+#winnerInput{font-size:clamp(1.3rem,3vh,1.9rem);padding:clamp(14px,2vh,20px) 18px;border-radius:14px;border-width:2px}
+#winnerInput:disabled{opacity:.6}
+#winnerInput[aria-invalid="true"]{border-color:#ff7a68;background:#3a2140}
+.field-error{margin:0;color:#ffb3a8;font-weight:800;font-size:clamp(.95rem,1.8vh,1.15rem);display:flex;align-items:center;gap:6px}
+.field-error::before{content:"!";flex:none;width:1.3em;height:1.3em;border-radius:50%;background:#ff7a68;color:var(--night);display:grid;place-items:center;font-size:.85em}
+.shake{animation:shake .4s}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+input[type=text]{appearance:none;width:100%;box-sizing:border-box;font:700 1rem var(--body);color:var(--paper);background:var(--night-2);
+  border:1.5px solid var(--night-3);border-radius:12px;padding:11px 14px}
+input[type=text]::placeholder{color:#7682b0}
+input[type=text]:focus-visible{outline:3px solid var(--lantern);outline-offset:1px}
+.won-wrap{width:100%;max-width:440px;margin-top:10px}
+.edit-link{margin-top:14px}
+.ok{appearance:none;border:0;background:var(--lantern);color:var(--night);font:800 .95rem var(--body);padding:10px 20px;border-radius:12px;cursor:pointer}
+.vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0 0 0 0);pointer-events:none}
+
+/* ---- 景品編集 ---- */
+.edit-head{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+.edit-head h2{font-family:var(--display);font-weight:400;font-size:1.4rem;margin:6px 0 0;color:var(--paper)}
+.hint.left{text-align:left}
+.add-box{background:var(--night-2);border-radius:16px;padding:14px;margin-top:16px}
+.add-grid{display:flex;gap:12px;align-items:stretch}
+.add-fields{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.add-fields input[type=text]{background:var(--night)}
+.add-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.thumb{flex:none;width:84px;height:84px;border-radius:12px;overflow:hidden;display:grid;place-items:center;background:var(--night);
+  color:var(--mist);font-size:.75rem;font-weight:800;text-align:center;line-height:1.3;border:1.5px dashed var(--night-3)}
+.thumb img{width:100%;height:100%;object-fit:contain;display:block;background:#fff}
+.thumb.pick{cursor:pointer}
+.thumb.pick:hover{border-color:var(--mist);color:var(--paper)}
+.thumb:focus-within{outline:3px solid var(--lantern)}
+.notice{margin:10px 0 0;color:var(--lantern);font-weight:700;font-size:.85rem}
+.elist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.eitem{display:flex;gap:12px;background:var(--night-2);border-radius:14px;padding:12px;min-width:0}
+.eitem .body{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.eitem .acts{display:flex;gap:6px;flex-wrap:wrap}
+.eitem .acts .ghost{padding:6px 12px;font-size:.8rem}
+.eitem .acts .danger{color:#ff9d93;border-color:#6b3340}
+.tag{align-self:flex-start;font-size:.72rem;font-weight:800;background:var(--lantern);color:var(--night);padding:2px 10px;border-radius:999px}
+.eitem.done{opacity:.6}
+.plist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.plist li{display:flex;align-items:center;gap:10px;background:var(--night-2);border-radius:12px;padding:10px 12px;min-width:0}
+.plist li .n{flex:1;min-width:0;overflow-wrap:anywhere;font-weight:700}
+.plist li .w{display:block;font-size:.8rem;color:var(--mist);font-weight:700}
+.plist li .ord{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--lantern);color:var(--night);
+  font-weight:800;font-size:.85rem;font-variant-numeric:tabular-nums}
+.plist li.done{opacity:.45}
+.plist li.done .n{text-decoration:line-through}
+.del{appearance:none;border:0;background:transparent;color:var(--mist);font:800 1.1rem var(--body);cursor:pointer;width:32px;height:32px;border-radius:50%;flex:none}
+.del:hover{background:var(--night-3);color:var(--paper)}
+.row-tools.left{justify-content:flex-start;margin-top:10px}
+
+/* ---- 高額景品 ---- */
+.add-options{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.premium-toggle{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-weight:800;font-size:.9rem;color:var(--mist);user-select:none}
+.premium-toggle input{appearance:none;flex:none;width:22px;height:22px;border-radius:6px;border:2px solid var(--night-3);background:var(--night);display:grid;place-items:center;margin:0;cursor:pointer}
+.premium-toggle input:checked{background:var(--lantern);border-color:var(--lantern)}
+.premium-toggle input:checked::after{content:"✓";color:var(--night);font-weight:900;font-size:14px;line-height:1}
+.premium-toggle input:focus-visible{outline:3px solid var(--paper);outline-offset:2px}
+.premium-toggle.on{color:var(--lantern)}
+.badge-premium{align-self:flex-start;font-size:.72rem;font-weight:800;background:linear-gradient(135deg,#ffe28a,#e0a92e);color:#3a2600;padding:2px 10px;border-radius:999px}
+.eitem.premium{box-shadow:inset 0 0 0 2px var(--lantern)}
+.eitem .acts{align-items:center}
+.slot.premium{border-color:#ffd25e;background:linear-gradient(160deg,#fff8e1,#fbe3a4);
+  box-shadow:0 0 0 4px rgba(255,210,94,.35),0 0 70px rgba(255,200,60,.55),0 18px 40px rgba(0,0,0,.4)}
+.slot.premium .label{color:#a86f00}
+.plist li .gold{flex:none;font-size:.7rem;font-weight:800;background:linear-gradient(135deg,#ffe28a,#e0a92e);color:#3a2600;padding:2px 8px;border-radius:999px}
+
+/* 大当たりの全画面演出 */
+.jackpot{position:fixed;inset:0;z-index:30;display:grid;place-items:center;overflow:hidden;cursor:pointer;
+  background:radial-gradient(circle at 50% 50%,rgba(90,45,0,.94),rgba(5,8,20,.98));
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.jackpot .rays{position:absolute;left:50%;top:50%;width:250vmax;height:250vmax;transform:translate(-50%,-50%);
+  background:repeating-conic-gradient(from 0deg,rgba(255,210,94,.32) 0deg 7deg,transparent 7deg 18deg);
+  -webkit-mask-image:radial-gradient(circle,#000 0,transparent 45%);mask-image:radial-gradient(circle,#000 0,transparent 45%);
+  animation:spin 9s linear infinite}
+@keyframes spin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+.jackpot .inner{position:relative;text-align:center;display:flex;flex-direction:column;align-items:center;gap:2vh;max-width:100%;
+  animation:slam .8s cubic-bezier(.2,1.5,.4,1) both}
+@keyframes slam{0%{transform:scale(3.2);opacity:0}55%{opacity:1}100%{transform:scale(1);opacity:1}}
+.jackpot .sub{font-weight:800;color:#ffe9a8;font-size:clamp(1rem,3.4vmin,2.2rem);letter-spacing:.35em;padding-left:.35em;
+  border:2px solid rgba(255,220,130,.6);border-radius:999px;padding-block:.2em;padding-inline:1em .65em}
+.jackpot .big{font-family:var(--display);font-size:clamp(3.4rem,17vmin,12rem);line-height:1.05;letter-spacing:.04em;
+  background:linear-gradient(180deg,#fffbe0 0%,#ffd25e 42%,#e39a0c 68%,#fff0a8 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 6px 0 #7a4200) drop-shadow(0 0 34px rgba(255,200,60,.75));animation:glow 1.2s ease-in-out .8s infinite alternate}
+@keyframes glow{to{filter:drop-shadow(0 6px 0 #7a4200) drop-shadow(0 0 60px rgba(255,230,120,1))}}
+.jackpot .jp-img{width:clamp(150px,36vmin,460px);aspect-ratio:1;max-width:80vw;border-radius:18px;overflow:hidden;display:grid;place-items:center;
+  background:linear-gradient(160deg,#fff8e1,#fbe3a4);border:5px solid #ffd25e;box-shadow:0 0 0 6px rgba(255,210,94,.25),0 0 60px rgba(255,200,60,.6);
+  animation:imgpop .7s .35s cubic-bezier(.2,1.5,.4,1) both}
+.jackpot .jp-img img{width:100%;height:100%;object-fit:contain;display:block;background:#fff}
+.jackpot .jp-img .q{font-family:var(--display);font-size:clamp(4rem,16vmin,12rem);color:#c9850a}
+@keyframes imgpop{0%{transform:scale(.3) rotate(-8deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}
+.jackpot .big{font-size:clamp(3rem,13vmin,9.5rem)}
+.jackpot .inner{gap:1.6vh}
+.jackpot .pname{font-family:var(--display);color:#fff;font-size:clamp(1.6rem,6.5vmin,4.4rem);line-height:1.25;text-shadow:0 4px 24px rgba(0,0,0,.7);overflow-wrap:anywhere}
+.jackpot .pwinner{color:#ffd9a0;font-weight:800;font-size:clamp(1rem,3.4vmin,2.2rem)}
+.jackpot .tap{color:#cdbb8c;font-size:clamp(.8rem,1.8vmin,1rem);font-weight:700;margin-top:1vh}
+.jackpot .flash{position:absolute;inset:0;background:#fff;opacity:0;animation:flash .7s ease-out}
+@keyframes flash{0%{opacity:.95}100%{opacity:0}}
+.screen-shake{animation:screenshake .6s}
+@keyframes screenshake{0%,100%{transform:translate(0,0)}15%{transform:translate(-12px,6px)}30%{transform:translate(10px,-8px)}45%{transform:translate(-8px,-4px)}60%{transform:translate(6px,8px)}75%{transform:translate(-4px,2px)}}
+canvas#confetti.top{z-index:40}
+
+/* ---- 確認ダイアログ ---- */
+.modal{position:fixed;inset:0;background:rgba(8,12,30,.7);display:grid;place-items:center;z-index:20;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.modal .box{background:var(--night-2);border-radius:16px;padding:22px;max-width:340px;width:100%;display:flex;flex-direction:column;gap:16px}
+.modal p{margin:0;line-height:1.6}
+.modal .btns{display:flex;gap:10px;justify-content:flex-end}
+.modal .ok{appearance:none;border:0;background:var(--shu);color:var(--paper);font:800 .95rem var(--body);padding:10px 18px;border-radius:999px;cursor:pointer}
+canvas#confetti{position:fixed;inset:0;pointer-events:none;z-index:15;width:100%;height:100%}
+
+/* ---- スマホの横向き（高さが低い画面）：1画面に収める ---- */
+@media (orientation:landscape) and (max-height:500px){
+  .wrap{padding-block:6px 8px;gap:8px}
+  h1{font-size:1.05rem}
+  h1 small{display:none}
+  .tabs{padding:3px}
+  .tabs button{padding:5px 14px;font-size:.85rem}
+
+  /* 抽選：玉を左、ボタンを右に */
+  .stage{display:grid;grid-template-columns:auto minmax(0,260px);grid-template-rows:1fr auto auto auto 1fr;
+    justify-content:center;align-items:center;column-gap:clamp(16px,5vw,48px);row-gap:10px;padding-block:0}
+  .ball{--size:clamp(140px,calc(100dvh - 80px),420px);grid-column:1;grid-row:1 / -1}
+  .stage .big-btn{grid-column:2;grid-row:2;justify-self:center;font-size:1.25rem;padding:12px 40px}
+  .stage .bgm-note{grid-column:2;grid-row:3;text-align:center}
+  .stage .row-tools{grid-column:2;grid-row:4;gap:6px}
+  .stage .row-tools .ghost{padding:6px 10px;font-size:.78rem}
+
+  /* ボード：B〜Oを横5行にして、マスを画面の高さに合わせる */
+  .board-view{gap:6px}
+  .board-head{flex-wrap:nowrap;align-items:center}
+  .board-head .section-label{margin:0}
+  .latest{padding:2px 14px;border-width:2px}
+  .latest span{font-size:.6rem}
+  .latest b{font-size:1.25rem}
+  .board{--cell:clamp(20px,calc((100dvh - 180px) / 5 - 4px),60px);grid-template-columns:1fr;gap:4px}
+  .board .grp{display:grid;grid-template-columns:calc(var(--cell) * 1.2) repeat(15,minmax(0,1fr));gap:4px}
+  .board-history .section-label{display:none}
+  .board-history .history{flex-wrap:nowrap;overflow-x:auto;min-height:0;padding-bottom:2px}
+  .board-history .chip{flex:none;height:26px;min-width:26px;font-size:.78rem;padding:0 6px}
+
+  /* 景品：札を左、操作を右に。右側だけスクロール */
+  .prize-layout{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);align-items:start;gap:14px;padding-block:0}
+  .slot{--img:clamp(80px,calc(100dvh - 190px),360px);min-height:0;max-width:none;height:calc(100dvh - 76px);padding:10px;gap:4px;border-width:3px}
+  .slot .label{font-size:.75rem}
+  .slot .name{font-size:clamp(1rem,calc(var(--img) * .13),1.6rem)}
+  .slot .winner{font-size:.85rem}
+  .prize-side{max-width:none;max-height:calc(100dvh - 76px);overflow-y:auto;gap:8px;padding-top:0;align-self:stretch}
+  .field.winner-field{gap:4px}
+  .field.winner-field label{font-size:.85rem}
+  #winnerInput{font-size:1.05rem;padding:9px 12px}
+  .prize-side .big-btn{font-size:1.15rem;padding:10px 30px}
+  .won-wrap{margin-top:0}
+  .edit-link{margin-top:4px}
+
+  /* 大当たり：写真を左、文字を右に */
+  .jackpot .inner{display:grid;grid-template-columns:auto auto;grid-template-areas:"img sub" "img big" "img name" "img winner" "img tap";
+    column-gap:5vw;row-gap:1vh;align-items:center;text-align:left;justify-items:start}
+  .jackpot .jp-img{grid-area:img;width:clamp(110px,60vh,260px)}
+  .jackpot .sub{grid-area:sub;font-size:3.6vh}
+  .jackpot .big{grid-area:big;font-size:clamp(2rem,15vh,4.4rem)}
+  .jackpot .pname{grid-area:name;font-size:clamp(1rem,8vh,2rem)}
+  .jackpot .pwinner{grid-area:winner;font-size:clamp(.8rem,4.4vh,1.1rem)}
+  .jackpot .tap{grid-area:tap;margin-top:0}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><small>COMPANY TRIP</small>社員旅行ビンゴ</h1>
+    <div class="tabs" role="tablist">
+      <button id="tab-draw" role="tab" aria-selected="true" data-view="draw">抽選</button>
+      <button id="tab-board" role="tab" aria-selected="false" data-view="board">ボード</button>
+      <button id="tab-prize" role="tab" aria-selected="false" data-view="prize">景品</button>
+    </div>
+  </header>
+
+  <section id="view-draw">
+    <div class="stage">
+      <div class="ball idle" id="ball"><div class="inner"><span class="num" id="ballNum">スタート</span></div></div>
+      <button class="big-btn" id="drawBtn">まわす</button>
+      <p class="bgm-note" id="bgmNote"></p>
+      <div class="row-tools">
+        <button class="ghost" id="soundBtn">音：オン</button>
+        <button class="ghost" id="undoBtn">ひとつ戻す</button>
+        <button class="ghost" id="resetBtn">最初からやり直す</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-board" class="board-view" hidden>
+    <div class="board-head">
+      <div>
+        <p class="section-label">番号ボード</p>
+        <div class="count"><b id="boardCount">0</b> / 75 個</div>
+      </div>
+      <div class="latest"><span>最新の番号</span><b id="boardLatest">―</b></div>
+    </div>
+    <div class="board" id="board"></div>
+    <div class="board-history">
+      <p class="section-label">出た番号（新しい順）</p>
+      <div class="history" id="history"></div>
+    </div>
+  </section>
+
+  <section id="view-prize" hidden>
+    <div class="prize-layout">
+      <div class="slot" id="slot">
+        <span class="label" id="slotLabel">景品抽選</span>
+        <div class="slot-img" id="slotImgBox"><img id="slotImg" alt="" hidden><span class="q" id="slotQ">？</span></div>
+        <span class="name" id="slotName">ビンゴした人が引きます</span>
+        <span class="winner" id="slotWinner"></span>
+      </div>
+      <div class="prize-side">
+        <div class="field winner-field">
+          <label for="winnerInput">当選者の名前<b>必須</b></label>
+          <input id="winnerInput" type="text" maxlength="30" placeholder="例：営業部 田中さん" autocomplete="off" aria-describedby="winnerError">
+          <p class="field-error" id="winnerError" role="alert" hidden>当選者の名前を入力してください。</p>
+        </div>
+        <div class="count"><span>残り</span> <b id="prizeRemain">0</b> 個</div>
+        <button class="big-btn" id="prizeDrawBtn">景品を引く</button>
+        <p class="bgm-note" id="prizeNote"></p>
+        <div class="won-wrap">
+          <p class="section-label">当選した景品</p>
+          <ol class="plist won" id="wonList"></ol>
+          <div class="row-tools left">
+            <button class="ghost" id="prizeUndoBtn">ひとつ戻す</button>
+            <button class="ghost" id="prizeResetBtn">当選をすべて取り消す</button>
+          </div>
+        </div>
+        <div class="row-tools edit-link">
+          <button class="ghost" id="openEditBtn">景品リストを編集（幹事用）</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-edit" hidden>
+    <div class="edit-head">
+      <button class="ghost" id="closeEditBtn">‹ 景品抽選に戻る</button>
+      <h2>景品リストの編集</h2>
+      <p class="hint left">ここで登録した景品が抽選の対象になります。参加者に見せないよう、幹事だけで操作してください。</p>
+    </div>
+
+    <form class="add-box" id="prizeForm">
+      <p class="section-label">景品を追加</p>
+      <div class="add-grid">
+        <label class="thumb pick" for="newPhoto" id="newThumb"><span>写真を<br>選ぶ</span></label>
+        <input class="vh" id="newPhoto" type="file" accept="image/*">
+        <div class="add-fields">
+          <input id="prizeInput" type="text" maxlength="40" placeholder="景品名を入力" autocomplete="off" aria-label="景品名">
+          <div class="add-options">
+            <label class="premium-toggle" id="newPremiumLabel"><input type="checkbox" id="newPremium">高額景品にする</label>
+            <div class="add-actions">
+              <button class="ghost" type="button" id="clearNewPhoto" hidden>写真を外す</button>
+              <button class="ok" type="submit">追加</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="notice" id="editNotice" hidden></p>
+    </form>
+
+    <p class="section-label" style="margin-top:22px">登録済みの景品（<span id="editCount">0</span>個）</p>
+    <ul class="elist" id="editList"></ul>
+  </section>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="box" role="dialog" aria-modal="true">
+    <p id="modalText"></p>
+    <div class="btns"><button class="ghost" id="modalCancel">やめる</button><button class="ok" id="modalOk">はい</button></div>
+  </div>
+</div>
+<div class="jackpot" id="jackpot" role="dialog" aria-modal="true" aria-label="大当たり" hidden>
+  <div class="rays"></div>
+  <div class="flash"></div>
+  <div class="inner">
+    <div class="sub">高額景品</div>
+    <div class="big">大当たり！</div>
+    <div class="jp-img" id="jackpotImgBox"><img id="jackpotImg" alt=""><span class="q" id="jackpotQ">？</span></div>
+    <div class="pname" id="jackpotName"></div>
+    <div class="pwinner" id="jackpotWinner"></div>
+    <div class="tap">画面をタップすると閉じます</div>
+  </div>
+</div>
+<canvas id="confetti" hidden></canvas>
+
+<script>
+(function(){
+  const KEY = "company-trip-bingo-v1";
+  const LETTERS = ["B","I","N","G","O"];
+  const letterOf = n => LETTERS[Math.floor((n-1)/15)];
+  const $ = id => document.getElementById(id);
+
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+  const examplePrizes = () => ["温泉まんじゅう詰め合わせ（例）","ギフトカード 3,000円分（例）","ワイヤレスイヤホン（例）"]
+    .map((name, i) => ({id:uid(), name, premium: i === 2, won:false, winner:"", order:0}));
+
+  let state = {drawn:[], sound:true, view:"draw", prizes:examplePrizes()};
+  try{ const s = JSON.parse(localStorage.getItem(KEY)); if(s && Array.isArray(s.drawn)) state = Object.assign(state, s); }catch(e){}
+  if(!Array.isArray(state.prizes)) state.prizes = examplePrizes();
+  delete state.card; // 以前のカード画面のデータは使わない
+  const save = () => { try{ localStorage.setItem(KEY, JSON.stringify(state)); return true; }catch(e){ return false; } };
+
+  // ---- 音 ----
+  let ac = null;
+  function tone(freq, dur, type="square", vol=.05){
+    if(!state.sound) return;
+    try{
+      ac = ac || new (window.AudioContext||window.webkitAudioContext)();
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = type; o.frequency.value = freq; g.gain.value = vol;
+      g.gain.exponentialRampToValueAtTime(.0001, ac.currentTime + dur);
+      o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime + dur);
+    }catch(e){}
+  }
+  const chime = () => { [784,988,1319].forEach((f,i)=>setTimeout(()=>tone(f,.35,"triangle",.12), i*110)); };
+
+  // ---- タブ ----
+  function showView(v){
+    state.view = v; save();
+    ["draw","board","prize","edit"].forEach(k => { $("view-"+k).hidden = v!==k; });
+    const tabView = v === "edit" ? "prize" : v;
+    document.querySelector(".wrap").classList.toggle("narrow", v === "edit");
+    document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-selected", b.dataset.view===tabView));
+  }
+  document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click",()=>showView(b.dataset.view)));
+
+  // ---- 確認 ----
+  let modalAction = null;
+  function ask(text, ok){ $("modalText").textContent = text; modalAction = ok; $("modal").hidden = false; $("modalOk").focus(); }
+  $("modalCancel").onclick = () => { $("modal").hidden = true; };
+  $("modalOk").onclick = () => { $("modal").hidden = true; modalAction && modalAction(); };
+
+  // ---- 抽選 ----
+  const ball = $("ball");
+  function setBall(n){
+    if(!n){ ball.classList.add("idle"); $("ballNum").textContent="スタート"; return; }
+    ball.classList.remove("idle"); $("ballNum").textContent = n;
+  }
+  function renderDraw(){
+    const d = state.drawn;
+    const done = d.length >= 75, btn = $("drawBtn");
+    btn.disabled = done && !rolling;
+    btn.textContent = rolling ? "とめる" : (done ? "全部出ました" : "まわす");
+    btn.classList.toggle("stop", rolling);
+    $("bgmNote").textContent = rolling ? "もう一度押すと番号が決まります" : "";
+    $("undoBtn").disabled = !d.length || rolling; $("resetBtn").disabled = rolling;
+    $("soundBtn").textContent = "音：" + (state.sound ? "オン" : "オフ");
+    renderBoard();
+  }
+
+  function renderBoard(){
+    const d = state.drawn, last = d[d.length-1], set = new Set(d), b = $("board");
+    $("boardCount").textContent = d.length;
+    $("boardLatest").textContent = last ? letterOf(last) + " " + last : "―";
+    b.innerHTML = "";
+    LETTERS.forEach((L,r)=>{
+      const g = document.createElement("div"); g.className = "grp";
+      const hd = document.createElement("div"); hd.className="h"; hd.textContent=L; g.appendChild(hd);
+      for(let i=1;i<=15;i++){ const n=r*15+i, c=document.createElement("div");
+        c.className = "c" + (set.has(n)?" on":"") + (n===last?" last":""); c.textContent=n; g.appendChild(c); }
+      b.appendChild(g);
+    });
+    const h = $("history"); h.innerHTML = "";
+    if(!d.length){ h.innerHTML = '<p class="empty-note">番号が出ると、ここに新しい順で並びます。</p>'; }
+    d.slice().reverse().forEach(n=>{ const s=document.createElement("span"); s.className="chip"; s.textContent=letterOf(n)+n; h.appendChild(s); });
+  }
+
+  // ---- BGM（音声ファイルは使わず、その場で鳴らす） ----
+  // 曲ごとの「楽譜」を受け取って、ループ再生する仕組み
+  function makeBGM(song){
+    const STEP = 60 / song.bpm / 4;   // 16分音符の長さ
+    let timer = null, master = null, step = 0, next = 0;
+    let noise = null;
+
+    function noiseBuffer(){
+      if(noise) return noise;
+      noise = ac.createBuffer(1, Math.floor(ac.sampleRate * 1.2), ac.sampleRate);
+      const ch = noise.getChannelData(0); for(let i=0;i<ch.length;i++) ch[i] = Math.random()*2-1;
+      return noise;
+    }
+    const v = {
+      snare(t, vol){
+        const src = ac.createBufferSource(); src.buffer = noiseBuffer();
+        const f = ac.createBiquadFilter(); f.type = "highpass"; f.frequency.value = 1800;
+        const g = ac.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + .07);
+        src.connect(f).connect(g).connect(master); src.start(t); src.stop(t + .08);
+      },
+      cymbal(t, vol){
+        const src = ac.createBufferSource(); src.buffer = noiseBuffer();
+        const f = ac.createBiquadFilter(); f.type = "highpass"; f.frequency.value = 5000;
+        const g = ac.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + 1.1);
+        src.connect(f).connect(g).connect(master); src.start(t); src.stop(t + 1.15);
+      },
+      taiko(t, vol = .55){
+        const o = ac.createOscillator(), g = ac.createGain();
+        o.type = "sine"; o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(45, t + .25);
+        g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + .3);
+        o.connect(g).connect(master); o.start(t); o.stop(t + .32);
+      },
+      note(t, freq, dur, type, vol, lowpass){
+        const o = ac.createOscillator(), g = ac.createGain();
+        o.type = type; o.frequency.setValueAtTime(freq, t);
+        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + .015);
+        g.gain.exponentialRampToValueAtTime(.001, t + dur);
+        let out = o;
+        if(lowpass){ const f = ac.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = lowpass; o.connect(f); out = f; }
+        out.connect(g).connect(master); o.start(t); o.stop(t + dur + .02);
+      }
+    };
+    function schedule(){
+      while(next < ac.currentTime + .15){
+        song.play(step % song.steps, next, STEP, v);
+        next += STEP; step++;
+      }
+    }
+    return {
+      start(){
+        if(!state.sound || timer) return;
+        try{
+          ac = ac || new (window.AudioContext||window.webkitAudioContext)();
+          if(ac.state === "suspended") ac.resume();
+          master = ac.createGain(); master.gain.value = song.volume; master.connect(ac.destination);
+          step = 0; next = ac.currentTime + .05; schedule();
+          timer = setInterval(schedule, 25);
+        }catch(e){}
+      },
+      stop(){
+        if(timer){ clearInterval(timer); timer = null; }
+        if(master && ac){ const m = master; m.gain.setTargetAtTime(0, ac.currentTime, .03); setTimeout(()=>m.disconnect(), 300); master = null; }
+      }
+    };
+  }
+
+  // ビンゴ抽選の曲：太鼓・ドラムロール・笛
+  const BGM = (() => {
+    const D5=587.3, E5=659.3, G5=784, A5=880, B5=987.8, D6=1174.7;
+    const MELODY = [A5,G5,A5,B5, A5,G5,E5,D5, E5,G5,A5,B5, D6,B5,A5,0,
+                    B5,A5,G5,E5, G5,A5,G5,E5, D5,E5,G5,E5, D5,0,D5,0];   // 8分音符×32
+    const BASS = [146.8,110,146.8,110, 130.8,98,146.8,110];
+    return makeBGM({ bpm:160, steps:64, volume:.7, play(s, t, STEP, v){
+      v.snare(t, s % 4 === 0 ? .16 : .06);
+      if(s % 8 === 0) v.taiko(t);
+      if(s % 2 === 0){ const m = MELODY[s/2]; if(m) v.note(t, m, STEP*1.8, "triangle", .13); }
+      if(s % 8 === 0) v.note(t, BASS[s/8], STEP*3.5, "sawtooth", .045);
+    }});
+  })();
+
+  // 景品抽選の曲（豪華版）：速いテンポ、和音、きらきらのアルペジオ、金管風メロディ、シンバル、だんだん大きくなるドラムロール
+  const PRIZE_BGM = (() => {
+    // 1小節ごとの和音 D → Bm → G → A
+    const CHORDS = [[293.7,370,440],[246.9,293.7,370],[196,246.9,293.7],[220,277.2,329.6]];
+    const ROOTS  = [73.4, 61.7, 49, 55];
+    const Fs5=740, A5=880, B5=987.8, D5=587.3, G5=784, E5=659.3, Cs6=1108.7, D6=1174.7, E6=1318.5;
+    const BRASS = [D5,Fs5,A5,Fs5, D6,A5,Fs5,A5,   B5,A5,Fs5,D5, Fs5,A5,B5,0,
+                   D6,B5,G5,B5, D6,E6,D6,B5,       Cs6,A5,E5,A5, Cs6,E6,A5,0];   // 8分音符×32
+    return makeBGM({ bpm:172, steps:64, volume:.62, play(s, t, STEP, v){
+      const bar = Math.floor(s / 16), chord = CHORDS[bar];
+      v.snare(t, .05 + .12 * (s / 64) + (s % 4 === 0 ? .08 : 0));    // だんだん大きく
+      if(s % 4 === 0) v.taiko(t, .5);
+      if(s % 16 === 14 || s % 16 === 15) v.taiko(t, .35);             // 小節の終わりに「ドドン」
+      if(s % 32 === 0) v.cymbal(t, .22);
+      if(s % 8 === 0) chord.forEach(f => { v.note(t, f, STEP*7.5, "sawtooth", .028, 1800); v.note(t, f*1.006, STEP*7.5, "sawtooth", .02, 1800); });
+      v.note(t, chord[s % 3] * 4, STEP*.9, "square", .022, 4000);     // きらきらアルペジオ
+      if(s % 2 === 0){ const m = BRASS[s/2]; if(m) v.note(t, m, STEP*1.9, "sawtooth", .07, 2600); }
+      if(s % 4 === 0) v.note(t, ROOTS[bar] * (s % 8 === 0 ? 1 : 2), STEP*3.2, "sawtooth", .06, 600);
+    }});
+  })();
+
+  // 景品が決まったときのファンファーレ
+  function fanfare(){
+    if(!state.sound) return;
+    try{
+      ac = ac || new (window.AudioContext||window.webkitAudioContext)();
+      const out = ac.createGain(); out.gain.value = .7; out.connect(ac.destination);
+      const t0 = ac.currentTime + .02;
+      const hit = (t, f, dur, vol) => {
+        [f, f*1.005].forEach(fr => {
+          const o = ac.createOscillator(), g = ac.createGain(), lp = ac.createBiquadFilter();
+          o.type = "sawtooth"; o.frequency.value = fr; lp.type = "lowpass"; lp.frequency.value = 3000;
+          g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + .02); g.gain.exponentialRampToValueAtTime(.001, t + dur);
+          o.connect(lp).connect(g).connect(out); o.start(t); o.stop(t + dur + .05);
+        });
+      };
+      // タタタ・ターン
+      [[0,587.3,.16],[.15,587.3,.16],[.3,587.3,.16],[.45,880,1.4]].forEach(([dt,f,d]) => hit(t0+dt, f, d, .09));
+      [293.7,370,440,587.3].forEach(f => hit(t0+.45, f, 1.6, .05));
+      const boom = ac.createOscillator(), bg = ac.createGain();
+      boom.frequency.setValueAtTime(120, t0+.45); boom.frequency.exponentialRampToValueAtTime(40, t0+.9);
+      bg.gain.setValueAtTime(.6, t0+.45); bg.gain.exponentialRampToValueAtTime(.001, t0+1);
+      boom.connect(bg).connect(out); boom.start(t0+.45); boom.stop(t0+1.05);
+      setTimeout(() => out.disconnect(), 2500);
+    }catch(e){}
+  }
+  function finale(){
+    if(!state.sound) return;
+    tone(196, .5, "sine", .3);
+    [784,988,1175,1568].forEach((f,i)=>setTimeout(()=>tone(f,.4,"triangle",.12), 80 + i*90));
+  }
+
+  // ---- 抽選（1回目で回し始め、2回目で確定） ----
+  let rolling = false, rollTimer = null;
+  const remainingNumbers = () => { const set = new Set(state.drawn); const r = []; for(let i=1;i<=75;i++) if(!set.has(i)) r.push(i); return r; };
+
+  function startRoll(){
+    const remain = remainingNumbers(); if(!remain.length) return;
+    rolling = true; ball.classList.add("rolling");
+    rollTimer = setInterval(() => setBall(remain[Math.floor(Math.random()*remain.length)]), 60);
+    BGM.start(); renderDraw();
+  }
+  function stopRoll(){
+    clearInterval(rollTimer); rollTimer = null; BGM.stop();
+    const remain = remainingNumbers();
+    const pick = remain[Math.floor(Math.random()*remain.length)];
+    rolling = false; ball.classList.remove("rolling");
+    setBall(pick); ball.classList.remove("pop"); void ball.offsetWidth; ball.classList.add("pop");
+    state.drawn.push(pick); save(); finale(); renderDraw();
+  }
+  $("drawBtn").onclick = () => { if(rolling) stopRoll(); else startRoll(); };
+  $("soundBtn").onclick = () => {
+    state.sound = !state.sound; save();
+    if(rolling){ state.sound ? BGM.start() : BGM.stop(); }
+    if(prizeRolling){ state.sound ? PRIZE_BGM.start() : PRIZE_BGM.stop(); }
+    renderDraw();
+  };
+  $("undoBtn").onclick = () => ask("最後に出た番号を取り消しますか？", () => { state.drawn.pop(); save(); setBall(state.drawn[state.drawn.length-1]); renderDraw(); });
+  $("resetBtn").onclick = () => ask("出た番号をすべて消して、最初からやり直しますか？", () => { state.drawn = []; save(); setBall(0); renderDraw(); });
+
+  // ---- 景品抽選 ----
+  const remainingPrizes = () => state.prizes.filter(p => !p.won);
+  const wonPrizes = () => state.prizes.filter(p => p.won).sort((a,b) => a.order - b.order);
+  let prizeRolling = false;
+
+  function setSlot(label, name, winner, image){
+    $("slotLabel").textContent = label; $("slotName").textContent = name; $("slotWinner").textContent = winner || "";
+    const img = $("slotImg"), box = $("slotImgBox");
+    if(image){ img.src = image; img.alt = name; img.hidden = false; $("slotQ").hidden = true; box.classList.add("has-img"); }
+    else { img.hidden = true; img.removeAttribute("src"); $("slotQ").hidden = false; box.classList.remove("has-img"); }
+  }
+  const resetSlot = () => { $("slot").classList.remove("premium"); setSlot("景品抽選", "ビンゴした人が引きます", "", ""); };
+
+  function renderPrizes(){
+    const remain = remainingPrizes(), won = wonPrizes();
+    $("prizeRemain").textContent = remain.length;
+    const pb = $("prizeDrawBtn");
+    pb.disabled = !remain.length && !prizeRolling;
+    pb.textContent = prizeRolling ? "とめる" : (!state.prizes.length ? "景品が登録されていません" : (!remain.length ? "景品がなくなりました" : "景品を引く"));
+    pb.classList.toggle("stop", prizeRolling);
+    $("prizeNote").textContent = prizeRolling ? "もう一度押すと景品が決まります" : "";
+    $("prizeUndoBtn").disabled = !won.length || prizeRolling; $("prizeResetBtn").disabled = !won.length || prizeRolling;
+
+    const wl = $("wonList"); wl.innerHTML = "";
+    if(!won.length){ wl.innerHTML = '<li><span class="n" style="color:var(--mist)">まだ誰も当たっていません。</span></li>'; }
+    won.forEach(p => {
+      const li = document.createElement("li");
+      const o = document.createElement("span"); o.className = "ord"; o.textContent = p.order; li.appendChild(o);
+      const n = document.createElement("span"); n.className = "n"; n.textContent = p.name;
+      const w = document.createElement("span"); w.className = "w"; w.textContent = p.winner ? p.winner : "当選者名なし"; n.appendChild(w);
+      li.appendChild(n);
+      if(p.premium){ const g = document.createElement("span"); g.className = "gold"; g.textContent = "高額"; li.appendChild(g); }
+      wl.appendChild(li);
+    });
+    renderEdit();
+  }
+
+  // 景品抽選：1回目で回し始め、2回目で確定（抽選中は景品名を出さない）
+  let prizeTimer = null;
+  let pendingWinner = "";
+  function showWinnerError(show){
+    const input = $("winnerInput");
+    $("winnerError").hidden = !show;
+    input.setAttribute("aria-invalid", show ? "true" : "false");
+    if(show){ input.classList.remove("shake"); void input.offsetWidth; input.classList.add("shake"); input.focus(); }
+  }
+  $("winnerInput").addEventListener("input", () => { if($("winnerInput").value.trim()) showWinnerError(false); });
+
+  function startPrizeRoll(){
+    if(!remainingPrizes().length) return;
+    const name = $("winnerInput").value.trim();
+    if(!name){ showWinnerError(true); return; }      // 名前が空なら抽選を始めない
+    showWinnerError(false);
+    pendingWinner = name;
+    $("winnerInput").disabled = true;                 // 抽選中は名前を変えられないようにする
+    prizeRolling = true;
+    $("slot").classList.add("rolling");
+    const marks = ["？","？？","？？？"]; let k = 0;
+    $("slot").classList.remove("premium");
+    setSlot("抽選中…", marks[0], "", "");
+    prizeTimer = setInterval(() => { $("slotName").textContent = marks[++k % marks.length]; }, 180);
+    PRIZE_BGM.start(); renderPrizes();
+  }
+  function stopPrizeRoll(){
+    clearInterval(prizeTimer); prizeTimer = null; PRIZE_BGM.stop();
+    const remain = remainingPrizes();
+    prizeRolling = false; $("slot").classList.remove("rolling");
+    $("winnerInput").disabled = false;
+    if(!remain.length){ resetSlot(); renderPrizes(); return; }
+    const pick = remain[Math.floor(Math.random()*remain.length)];
+    const winner = pendingWinner; pendingWinner = "";
+    pick.won = true; pick.winner = winner;
+    pick.order = Math.max(0, ...state.prizes.map(p => p.order || 0)) + 1;
+    const congrats = winner ? winner + " おめでとうございます！" : "おめでとうございます！";
+    setSlot(pick.premium ? "大当たり！ 高額景品" : "当たり！", pick.name, congrats, pick.image);
+    const slot = $("slot"); slot.classList.toggle("premium", !!pick.premium);
+    slot.classList.remove("pop"); void slot.offsetWidth; slot.classList.add("pop");
+    $("winnerInput").value = "";
+    save(); renderPrizes();
+    if(pick.premium) showJackpot(pick.name, congrats, pick.image);   // 高額景品は特別演出
+    else { fanfare(); confetti(); }
+  }
+
+  // ---- 高額景品の大当たり演出 ----
+  let jackpotTimer = null;
+  function showJackpot(name, congrats, image){
+    $("jackpotName").textContent = name;
+    const ji = $("jackpotImg");
+    if(image){ ji.src = image; ji.alt = name; ji.hidden = false; $("jackpotQ").hidden = true; }
+    else { ji.hidden = true; ji.removeAttribute("src"); $("jackpotQ").hidden = false; }
+    $("jackpotWinner").textContent = congrats;
+    const jp = $("jackpot"); jp.hidden = false;
+    // 演出のアニメーションを最初から再生し直す
+    jp.querySelectorAll(".inner,.flash,.jp-img").forEach(el => { el.style.animation = "none"; void el.offsetWidth; el.style.animation = ""; });
+    document.querySelector(".wrap").classList.remove("screen-shake"); void document.body.offsetWidth;
+    document.querySelector(".wrap").classList.add("screen-shake");
+    jackpotSound();
+    confetti({count:320, duration:6000, colors:["#ffd25e","#ffe9a8","#f5c04a","#fff6c8","#e5483a"], top:true});
+    setTimeout(() => confetti({count:200, duration:4000, colors:["#ffd25e","#fff6c8","#ffffff"], top:true}), 1400);
+    clearTimeout(jackpotTimer);
+    jackpotTimer = setTimeout(hideJackpot, 7000);
+  }
+  function hideJackpot(){ clearTimeout(jackpotTimer); $("jackpot").hidden = true; }
+  $("jackpot").addEventListener("click", hideJackpot);
+  document.addEventListener("keydown", e => { if(e.key === "Escape" && !$("jackpot").hidden) hideJackpot(); });
+
+  // 大当たり専用の音：ドラムロール → ドーン＋金管の和音 → きらきら上昇
+  function jackpotSound(){
+    if(!state.sound) return;
+    try{
+      ac = ac || new (window.AudioContext||window.webkitAudioContext)();
+      const out = ac.createGain(); out.gain.value = .75; out.connect(ac.destination);
+      const t0 = ac.currentTime + .02;
+      const nb = ac.createBuffer(1, Math.floor(ac.sampleRate * 1.5), ac.sampleRate);
+      const ch = nb.getChannelData(0); for(let i=0;i<ch.length;i++) ch[i] = Math.random()*2-1;
+      const noiseHit = (t, vol, dur, hp) => {
+        const src = ac.createBufferSource(); src.buffer = nb;
+        const f = ac.createBiquadFilter(); f.type = "highpass"; f.frequency.value = hp;
+        const g = ac.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + dur);
+        src.connect(f).connect(g).connect(out); src.start(t); src.stop(t + dur + .02);
+      };
+      const boom = (t, vol) => {
+        const o = ac.createOscillator(), g = ac.createGain();
+        o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(38, t + .5);
+        g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + .6);
+        o.connect(g).connect(out); o.start(t); o.stop(t + .65);
+      };
+      const brass = (t, f, dur, vol) => {
+        [f, f*1.006, f*.995].forEach(fr => {
+          const o = ac.createOscillator(), g = ac.createGain(), lp = ac.createBiquadFilter();
+          o.type = "sawtooth"; o.frequency.value = fr; lp.type = "lowpass"; lp.frequency.value = 3200;
+          g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + .03); g.gain.exponentialRampToValueAtTime(.001, t + dur);
+          o.connect(lp).connect(g).connect(out); o.start(t); o.stop(t + dur + .05);
+        });
+      };
+      const bell = (t, f, vol) => {
+        const o = ac.createOscillator(), g = ac.createGain();
+        o.type = "triangle"; o.frequency.value = f;
+        g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + .5);
+        o.connect(g).connect(out); o.start(t); o.stop(t + .55);
+      };
+      // ドラムロール（だんだん速く大きく）
+      let t = t0, gap = .09;
+      while(t < t0 + .9){ noiseHit(t, .05 + .25 * (t - t0), .06, 1800); t += gap; gap = Math.max(.03, gap * .9); }
+      const hit = t0 + .95;
+      boom(hit, .8); noiseHit(hit, .35, 1.4, 5000);
+      // 金管のファンファーレ（タタタ・ターン → 和音）
+      [[0,880,.14],[.13,880,.14],[.26,880,.14],[.39,1174.7,1.6]].forEach(([dt,f,d]) => brass(hit + dt, f, d, .075));
+      [293.7,370,440,587.3,740].forEach(f => brass(hit + .39, f, 1.9, .04));
+      boom(hit + .39, .6); noiseHit(hit + .39, .3, 1.2, 5000);
+      // きらきら上昇
+      [1174.7,1480,1760,2349.3,2960,3520].forEach((f,i) => bell(hit + .6 + i * .07, f, .06));
+      setTimeout(() => out.disconnect(), 4500);
+    }catch(e){}
+  }
+  $("prizeDrawBtn").onclick = () => { if(prizeRolling) stopPrizeRoll(); else startPrizeRoll(); };
+  $("prizeUndoBtn").onclick = () => ask("最後の当選を取り消して、景品を抽選の対象に戻しますか？", () => {
+    const won = wonPrizes(); const last = won[won.length-1]; if(!last) return;
+    last.won = false; last.winner = ""; last.order = 0; save(); resetSlot(); renderPrizes();
+  });
+  $("prizeResetBtn").onclick = () => ask("当選をすべて取り消して、景品を抽選の対象に戻しますか？（登録した景品は残ります）", () => {
+    state.prizes.forEach(p => { p.won = false; p.winner = ""; p.order = 0; }); save(); resetSlot(); renderPrizes();
+  });
+  $("openEditBtn").onclick = () => { if(prizeRolling) return; showView("edit"); window.scrollTo(0,0); };
+  $("closeEditBtn").onclick = () => { showView("prize"); window.scrollTo(0,0); };
+
+  // ---- 景品リストの編集 ----
+  function notice(msg){ const n = $("editNotice"); n.textContent = msg || ""; n.hidden = !msg; }
+
+  // 写真を小さくしてから保存する（端末の保存容量を節約）
+  function shrinkImage(file, max = 640){
+    return new Promise((resolve, reject) => {
+      if(!file || !file.type.startsWith("image/")){ reject(new Error("type")); return; }
+      const url = URL.createObjectURL(file), img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        const cv = document.createElement("canvas");
+        cv.width = Math.round(img.width * scale); cv.height = Math.round(img.height * scale);
+        cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+        URL.revokeObjectURL(url); resolve(cv.toDataURL("image/jpeg", 0.8));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("load")); };
+      img.src = url;
+    });
+  }
+  const PHOTO_ERR = "この写真は読み込めませんでした。JPEGやPNGの写真を選んでください。";
+  const STORAGE_ERR = "保存できませんでした。端末の保存容量が足りない可能性があります。写真の枚数を減らしてください。";
+
+  function setThumb(el, image, emptyHtml){
+    el.innerHTML = "";
+    if(image){ const i = document.createElement("img"); i.src = image; i.alt = ""; el.appendChild(i); }
+    else el.innerHTML = emptyHtml;
+  }
+
+  let newImage = "";
+  function renderNewThumb(){
+    setThumb($("newThumb"), newImage, "<span>写真を<br>選ぶ</span>");
+    $("clearNewPhoto").hidden = !newImage;
+  }
+  $("newPhoto").addEventListener("change", async e => {
+    const f = e.target.files[0]; e.target.value = ""; if(!f) return;
+    try{ newImage = await shrinkImage(f); notice(""); }catch(err){ notice(PHOTO_ERR); }
+    renderNewThumb();
+  });
+  $("clearNewPhoto").onclick = () => { newImage = ""; renderNewThumb(); };
+  $("newPremium").addEventListener("change", e => $("newPremiumLabel").classList.toggle("on", e.target.checked));
+
+  $("prizeForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const name = $("prizeInput").value.trim();
+    if(!name){ notice("景品名を入力してください。"); $("prizeInput").focus(); return; }
+    const premium = $("newPremium").checked;
+    const prize = {id:uid(), name, image:newImage, premium, won:false, winner:"", order:0};
+    state.prizes.push(prize);
+    if(!save()){ state.prizes.pop(); notice(STORAGE_ERR); return; }
+    $("prizeInput").value = ""; newImage = ""; renderNewThumb();
+    $("newPremium").checked = false; $("newPremiumLabel").classList.remove("on");
+    notice("「" + name + "」を" + (premium ? "高額景品として" : "") + "追加しました。");
+    renderPrizes();
+  });
+
+  function renderEdit(){
+    $("editCount").textContent = state.prizes.length;
+    const list = $("editList"); list.innerHTML = "";
+    if(!state.prizes.length){ list.innerHTML = '<li class="eitem"><span class="n" style="color:var(--mist)">まだ景品がありません。上の欄から追加してください。</span></li>'; return; }
+    state.prizes.forEach(p => {
+      const li = document.createElement("li"); li.className = "eitem" + (p.won ? " done" : "") + (p.premium ? " premium" : "");
+
+      const th = document.createElement("label"); th.className = "thumb pick"; th.htmlFor = "photo-" + p.id;
+      setThumb(th, p.image, "<span>写真を<br>選ぶ</span>");
+      const fi = document.createElement("input"); fi.type = "file"; fi.accept = "image/*"; fi.className = "vh"; fi.id = "photo-" + p.id;
+      fi.addEventListener("change", async e => {
+        const f = e.target.files[0]; e.target.value = ""; if(!f) return;
+        const before = p.image;
+        try{ p.image = await shrinkImage(f); }catch(err){ notice(PHOTO_ERR); return; }
+        if(!save()){ p.image = before; notice(STORAGE_ERR); } else notice("");
+        renderEdit();
+      });
+
+      const body = document.createElement("div"); body.className = "body";
+      if(p.won){ const t = document.createElement("span"); t.className = "tag"; t.textContent = p.order + "番目に当選" + (p.winner ? "：" + p.winner : ""); body.appendChild(t); }
+      const nameIn = document.createElement("input"); nameIn.type = "text"; nameIn.maxLength = 40; nameIn.value = p.name;
+      nameIn.id = "name-" + p.id; nameIn.setAttribute("aria-label", "景品名");
+      nameIn.addEventListener("change", () => {
+        const v = nameIn.value.trim(); if(!v){ nameIn.value = p.name; return; }
+        p.name = v; save(); renderPrizes();
+      });
+      body.appendChild(nameIn);
+
+      const acts = document.createElement("div"); acts.className = "acts";
+      const pt = document.createElement("label"); pt.className = "premium-toggle" + (p.premium ? " on" : "");
+      const pc = document.createElement("input"); pc.type = "checkbox"; pc.checked = !!p.premium; pc.id = "premium-" + p.id;
+      pc.addEventListener("change", () => { p.premium = pc.checked; save(); renderPrizes(); });
+      pt.append(pc, document.createTextNode("高額景品")); acts.appendChild(pt);
+      if(p.image){
+        const rm = document.createElement("button"); rm.className = "ghost"; rm.type = "button"; rm.textContent = "写真を外す";
+        rm.onclick = () => { p.image = ""; save(); renderEdit(); };
+        acts.appendChild(rm);
+      }
+      const del = document.createElement("button"); del.className = "ghost danger"; del.type = "button"; del.textContent = "削除";
+      del.onclick = () => ask("「" + p.name + "」を景品リストから削除しますか？", () => {
+        state.prizes = state.prizes.filter(x => x.id !== p.id); save(); renderPrizes();
+      });
+      acts.appendChild(del); body.appendChild(acts);
+
+      li.append(th, fi, body); list.appendChild(li);
+    });
+  }
+
+  // ---- 紙吹雪 ----
+  let confettiRun = 0;
+  function confetti(opts = {}){
+    if(matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const count = opts.count || 120, duration = opts.duration || 3000;
+    const cols = opts.colors || ["#f5c04a","#e5483a","#fbf3e2","#7fb3ff"];
+    const cv = $("confetti"), ctx = cv.getContext("2d"); cv.hidden = false; cv.classList.toggle("top", !!opts.top);
+    const W = cv.width = innerWidth, H = cv.height = innerHeight;
+    const run = ++confettiRun;
+    const ps = Array.from({length:count},()=>({x:Math.random()*W,y:-20-Math.random()*H*.6,vx:(Math.random()-.5)*2.4,vy:2+Math.random()*3.5,
+      r:Math.random()*6.28,s:5+Math.random()*(opts.top ? 10 : 6),c:cols[Math.floor(Math.random()*cols.length)]}));
+    const t0 = performance.now();
+    (function f(){
+      if(run !== confettiRun) return;     // 新しい紙吹雪が始まったら古いほうは止める
+      ctx.clearRect(0,0,W,H);
+      ps.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.r+=.1;if(p.y>H+20&&performance.now()-t0<duration-1500){p.y=-20;p.x=Math.random()*W;}
+        ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.r);ctx.fillStyle=p.c;ctx.fillRect(-p.s/2,-p.s/4,p.s,p.s/2);ctx.restore();});
+      if(performance.now()-t0 < duration) requestAnimationFrame(f); else { ctx.clearRect(0,0,W,H); cv.hidden = true; cv.classList.remove("top"); }
+    })();
+  }
+
+  // 画面が消えないように（使える場合のみ）
+  try{ navigator.wakeLock && navigator.wakeLock.request("screen").catch(()=>{}); }catch(e){}
+
+  setBall(state.drawn[state.drawn.length-1]);
+  renderDraw(); renderPrizes(); showView(state.view === "edit" ? "prize" : (["board","prize"].includes(state.view) ? state.view : "draw"));
+})();
+</script>
+<script>
+// 一度開けばオフラインでも使えるようにする
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
+// iPhoneのマナーモード中でも音が鳴るようにする（対応している端末のみ）
+try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch (e) {}
+</script>
+</body>
+</html>
