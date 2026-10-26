@@ -1,5 +1,5 @@
 // 一度開いたら、インターネットがなくても動くように必要なファイルを保存しておく
-const CACHE = "bingo-v2";
+const CACHE = "bingo-v3";
 const FILES = [
   "./", "./index.html", "./manifest.webmanifest",
   "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512.png",
