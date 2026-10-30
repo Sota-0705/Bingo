@@ -120,7 +120,8 @@ button:focus-visible{outline:3px solid var(--paper);outline-offset:2px}
 .slot.pop{animation:pop .5s cubic-bezier(.2,1.6,.4,1)}
 .slot-img{width:var(--img);aspect-ratio:1;max-width:100%;border-radius:16px;overflow:hidden;display:grid;place-items:center;
   background:repeating-linear-gradient(45deg,#f1e4c4 0 12px,#f7edd5 12px 24px);border:2px dashed #e0cc9c}
-.slot-img img{width:100%;height:100%;object-fit:contain;display:block}
+.slot-img{position:relative}
+.slot-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}
 .slot-img .q{font-family:var(--display);font-size:calc(var(--img) * .4);color:var(--shu);opacity:.85}
 .slot-img.has-img{border:0;background:#fff}
 @media (min-width:900px) and (orientation:landscape){
@@ -160,7 +161,8 @@ input[type=text]:focus-visible{outline:3px solid var(--lantern);outline-offset:1
 .add-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
 .thumb{flex:none;width:84px;height:84px;border-radius:12px;overflow:hidden;display:grid;place-items:center;background:var(--night);
   color:var(--mist);font-size:.75rem;font-weight:800;text-align:center;line-height:1.3;border:1.5px dashed var(--night-3)}
-.thumb img{width:100%;height:100%;object-fit:contain;display:block;background:#fff}
+.thumb{position:relative}
+.thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;background:#fff}
 .thumb.pick{cursor:pointer}
 .thumb.pick:hover{border-color:var(--mist);color:var(--paper)}
 .thumb:focus-within{outline:3px solid var(--lantern)}
@@ -224,7 +226,8 @@ input[type=text]:focus-visible{outline:3px solid var(--lantern);outline-offset:1
 .jackpot .jp-img{width:clamp(150px,36vmin,460px);aspect-ratio:1;max-width:80vw;border-radius:18px;overflow:hidden;display:grid;place-items:center;
   background:linear-gradient(160deg,#fff8e1,#fbe3a4);border:5px solid #ffd25e;box-shadow:0 0 0 6px rgba(255,210,94,.25),0 0 60px rgba(255,200,60,.6);
   animation:imgpop .7s .35s cubic-bezier(.2,1.5,.4,1) both}
-.jackpot .jp-img img{width:100%;height:100%;object-fit:contain;display:block;background:#fff}
+.jackpot .jp-img{position:relative}
+.jackpot .jp-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;background:#fff}
 .jackpot .jp-img .q{font-family:var(--display);font-size:clamp(4rem,16vmin,12rem);color:#c9850a}
 @keyframes imgpop{0%{transform:scale(.3) rotate(-8deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}
 .jackpot .big{font-size:clamp(3rem,13vmin,9.5rem)}
